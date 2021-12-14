@@ -8,6 +8,7 @@ import com.rongke.entity.User;
 import com.rongke.util.AlertException;
 import com.rongke.util.ResultCode;
 import com.rongke.util.UserStatueUtil;
+import com.rongke.util.UserUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -46,41 +47,49 @@ public class UserServiceImpl implements UserService{
             throw new AlertException(ResultCode.USER_ACCOUNT_ALREADY_EXIST);
         }
     }
-
-    /**
-     * 首先查询数据库是否存在该用户名，存在再检查该用户是否被锁定
-     * 没有锁定检查密码是否正确，密码正确登录成功，返回user信息
-     * 密码错误返回抛出异常，密码错误，并使得attempt+1
-     * 如果被锁定了，检查当前时间是否大于解锁时间，若大于则将attempt设为0，否则抛出异常，账户被锁定
-     * @param username
-     * @param password
-     * @return
-     * @throws Exception
-     */
     @Override
     public Object login(String username, String password) throws Exception {
         QueryWrapper<User> wrapper = new QueryWrapper<>();
-        wrapper.eq("username",username)
-                .eq("statue",UserStatueUtil.USER_ACTIVE);
+        wrapper.eq("username",username);
         User user = userMapper.selectOne(wrapper);
         if (user == null){
-            return null;
-        }else {
-            if (password.equals(user.getPassword())){
-                return user;
-            }else {
-                if (user.getAttempt() >= 3){
-                    UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
-                    userUpdateWrapper.eq("username",user.getUsername()).set("statue",UserStatueUtil.USER_LOCKED).set("time",new Date(System.currentTimeMillis()+1000*60*60));
-                    userMapper.update(user, userUpdateWrapper);
-                    throw new Exception("您的账号被锁定");
-                }
-                UpdateWrapper<User> updateWrapper  = new UpdateWrapper<>();
-                updateWrapper.eq("username",user.getUsername()).set("attempt",user.getAttempt()+1);
-                int update = userMapper.update(user, updateWrapper);
-                return user;
-            }
+            throw new AlertException(ResultCode.USER_ACCOUNT_NOT_EXIST);
         }
+        //如果状态为0，且没到解锁时间，则抛出账号被锁定异常
+        if (user.getStatue() == UserStatueUtil.USER_LOCKED && System.currentTimeMillis() <= user.getTime()){
+            throw new AlertException(ResultCode.USER_ACCOUNT_LOCKED);
+        }
+        //如果状态为0，但是到了解锁时间，则将状态设为1，并且重置尝试次数
+        if (user.getStatue() == UserStatueUtil.USER_LOCKED && System.currentTimeMillis() > user.getTime()){
+            UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("username",username)
+                    .set("attempt",0)
+                    .set("statue",UserStatueUtil.USER_ACTIVE);
+            userMapper.update(user,updateWrapper);
+            user.setAttempt(0);
+            user.setStatue(UserStatueUtil.USER_ACTIVE);
+        }
+        //如果尝试次数大于3，则设置状态为0，解锁时间为1分钟
+        if (user.getAttempt() > 3){
+            UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("username",username)
+                    .set("time",System.currentTimeMillis()+60*1000)
+                    .set("statue",UserStatueUtil.USER_LOCKED);
+            userMapper.update(user,updateWrapper);
+            throw new AlertException(ResultCode.USER_ACCOUNT_LOCKED);
+        }
+
+        //密码正确则返回该用户信息
+        if (user.getPassword().equals(password)){
+            return user;
+        }
+        //密码不正确，尝试次数加1，抛出密码错误异常
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("username",username)
+                .set("attempt",user.getAttempt()+1);
+        userMapper.update(user,updateWrapper);
+        throw new AlertException(ResultCode.USER_CREDENTIALS_ERROR);
+
     }
 
 }
