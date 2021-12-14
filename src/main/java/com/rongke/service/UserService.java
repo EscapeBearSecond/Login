@@ -4,4 +4,6 @@ import com.rongke.entity.User;
 
 public interface UserService {
     User register(User user);
+
+    Object login(String username, String password) throws Exception;
 }
