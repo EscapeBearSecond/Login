@@ -15,5 +15,5 @@ public interface UserService {
      * @return
      * @throws Exception
      */
-    Object login(String username, String password) throws Exception;
+    User login(String username, String password) throws Exception;
 }

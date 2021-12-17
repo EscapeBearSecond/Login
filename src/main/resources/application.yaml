@@ -4,7 +4,7 @@ spring:
     username: root
     password: dyg20010701
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/logindb?useUnicode=true&characterEncoding=UTF-8
+    url: jdbc:mysql://localhost:3306/logindb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT
     type: com.alibaba.druid.pool.DruidDataSource
 
     #   Druid数据源配置

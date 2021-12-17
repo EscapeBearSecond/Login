@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService{
         }
     }
     @Override
-    public Object login(String username, String password) throws Exception {
+    public User login(String username, String password) throws Exception {
         QueryWrapper<User> wrapper = new QueryWrapper<>();
         wrapper.eq("username",username);
         User user = userMapper.selectOne(wrapper);
